@@ -1,6 +1,6 @@
 ---
 title: "HW2 STA521 Fall18"
-author: '[Your Name Here, netid and github username here]'
+author: 'Evan Poworoznek netID: elp28 github: Poworoznek'
 date: "Due September 23, 2018 5pm"
 output:
   pdf_document: default
@@ -8,117 +8,231 @@ output:
     df_print: paged
 ---
 
-## Backgound Reading
-
-Readings: Chapters 3-4 in Weisberg Applied Linear Regression
-
-
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-This exercise involves the UN data set from `alr3` package. Install `alr3` and the `car` packages and load the data to answer the following questions adding your code in the code chunks.  Please add appropriate code to the chunks to suppress messages and warnings as needed once you are sure the code is working properly and remove instructions if no longer needed. Figures should have informative captions. Please switch the output to pdf for your final version to upload to Sakai. **Remove these instructions for final submission**
-
-
-## Exploratory Data Analysis
-
-0.  Preliminary read in the data.  After testing, modify the code chunk so that output, messages and warnings are suppressed.  *Exclude text from final*
-
-```{r data}
+```{r data, include=FALSE}
 library(alr3)
+library(knitr)
+library(kableExtra)
+library(GGally)
+library(car)
 data(UN3, package="alr3")
 help(UN3) 
-library(car)
 ```
 
 
-1. Create a summary of the data.  How many variables have missing data?  Which are quantitative and which are qualtitative?
+1. Create a summary of the data. How many variables have missing data? Which are quantitative and which are qualtitative?
 
 ```{r}
-
+summary(UN3)
+?UN3
+head(UN3)
+sapply(UN3, function(x) {sum(is.na(x))})
 ```
 
-2. What is the mean and standard deviation of each quantitative predictor?  Provide in a nicely formatted table.
+All of the variables in this dataset are quantitative, and the help file confirms that none of them are nominal or ordinal factors masquerading as numeric. Purban is the only variable without missing values, and the remaining variables have between 1 and 58 missing values. 
+
+2. What is the mean and standard deviation of each quantitative predictor? Provide in a nicely formatted table.
 
 ```{r}
-
+tabledata = cbind(sapply(UN3, function(x) {mean(na.omit(x))}),
+                  sapply(UN3, function(x) {sd(na.omit(x))}))
+kable(tabledata, col.names = c('mean', 'standard deviation'), booktabs = T)
 ```
 
 
 3. Investigate the predictors graphically, using scatterplots or other tools of your choice. Create some plots
 highlighting the relationships among the predictors. Comment
-on your findings regarding trying to predict `ModernC` from the other variables.  Are there potential outliers, nonlinear relationships or transformations that appear to be needed based on your graphical EDA?
+on your findings regarding trying to predict `ModernC` from the other variables. Are there potential outliers, nonlinear relationships or transformations that appear to be needed based on your graphical EDA?
 
-```{r}
-
+```{r echo = F}
+ggpairs(na.omit(UN3), progress = F)
 ```
+
+The scatterplot matrix shows that there are some issues in this regressor set. The predictors have pearson correlation coefficients with magnitudes between 0.1 and 0.7 for their relationship with ModernC, so they do appear to be associated with ModernC. Some of the relationships between ModernC and the predictors appear only slightly nonlinear (Change, Frate, Fertility, Purban), but the relationship between ModernC and PPgpd appears very non-linear and very heteroskedastic. The relationship between ModernC and Pop is difficult to determine because of the two population outliers, India and China. 
+
+```{r echo = F, fig.height = 3, fig.width = 5}
+plot.default(na.omit(UN3[-c(86,39), c(5,1)])[1][[1]], na.omit(UN3[-c(86,39), c(5,1)])[2][[1]], xlab = 'Pop', ylab = 'ModernC', type = 'p')
+```
+
+The scatterplot for these variables with India and China excluded is shown below the scatterplot matrix, and does not show a visible association. Just among The regressor set there are issues. This does not qualify as a set of linear predictors as defined in the text, because there are clear non-linear relationships between the regressors (PPgpd shows a non-linear relationship with just about every other predictor, and the relationship between fertility and change is apparently non-linear). That indicates that our standard residual plots are no longer interpretatible in the same manner. 
+
+```{r echo = F, fig.height = 3, fig.width = 5}
+plot(princomp(na.omit(UN3[,-1])))
+```
+
+If we consider only the linear part of the relationships in the regressor set with a linear approximation in a principle component analysis we can see that a single principal component accounts for almost all (0.9955) of the total variance in this regressor set. The plot showing the comparative variance amounts in this principal components analysis is shown above.
 
 ## Model Fitting
 
-4.  Use the `lm()` function to perform a multiple linear regression with `ModernC` as the response and all other variables as the predictors, using the formula `ModernC ~ .`, where the `.` includes all remaining variables in the dataframe.  Create  diagnostic residual plot from the linear model object and comment on results regarding assumptions.  How many observations are used in your model fitting?
+4. Use the `lm()` function to perform a multiple linear regression with `ModernC` as the response and all other variables as the predictors, using the formula `ModernC ~ .`, where the `.` includes all remaining variables in the dataframe. Create diagnostic residual plot from the linear model object and comment on results regarding assumptions. How many observations are used in your model fitting?
 
-```{r}
-
+```{r echo = F, fig.height = 5, fig.width = 8}
+un3.lm = lm(ModernC ~ ., data = UN3)
+summary(un3.lm)
+par(mfrow = c(2,2))
+plot(un3.lm)
 ```
 
-5. Examine added variable plots `car::avPlot` or `car::avPlots`  for your model above. Are there any plots that suggest that transformations are needed for any of the terms in the model? Describe. Is it likely that any of the localities are influential for any of the terms?  Which localities?  Which terms?  
+85 observations are excluded by the lm function because those 85 rows contain at least one missing value, and the default behavior of the lm function is to exclude completely rows without a complete set of values for the specified regressors. 125 observations remain with which to fit the linear model. The diagnostic plots for the standard least squares regression with all the covariates in the datasets appear to support the set of assumptions required to make conclusions. The residual by fitted plot does not appear to show a non-linear pattern or a major trend in the variance across the fitted axis. There appears to be a slight reduction in variance toward the lower end of the fitted values, but that appearance could just be a result of the fewer datapoints in that area. From this it appears valid to assume that the residuals are independent and identically distributed around mean 0 with constant variance. 
 
-```{r}
+The normal quantile-quantile plot of the residuals indicates near-normality, but with a slight left skew. Overall the normal assumption is relatively robust and the slight skew might only affect very sensitive inference. The Cook Islands look somewhat isolated in the normal q-q plot, but they are not very far off the 1:1 line, or the expected pattern. Likewise, the Scale-Location plot does not show any concerning features, and appears to be patternless noise. The residuals-leverage plot shows that india and china have very high leverage, but not very large standardized residuals.
 
+Just because these plots appear to show that our assumptions hold, does not mean that they necessarily do. These plots are unreliable due to the pairwise non-linear relationships visible in the scatterplot matrix above, and particularly when we divide by the diagonal hat value to standardize, that does not appropriately capture the variance at the point without a set of linear predictors. for this reason, the individual relationships between the predictors and the model should be evaluated.
+
+5. Examine added variable plots `car::avPlot` or `car::avPlots` for your model above. Are there any plots that suggest that transformations are needed for any of the terms in the model? Describe. Is it likely that any of the localities are influential for any of the terms? Which localities? Which terms? 
+
+```{r, fig.height = 10}
+par(mfrow = c(1,1))
+avPlots(un3.lm)
 ```
 
-6.  Using the Box-Tidwell  `car::boxTidwell` or graphical methods find appropriate transformations of the predictor variables to be used as predictors in the linear model.  If any predictors are negative, you may need to transform so that they are non-negative.  Describe your method and  the resulting transformations.
+The a-v plots for Frate and Change indicate that the linearity assumption is upheld for those variables. The a-v plots for PPgpd and Purban have distinct non-linear trends, and indicate that a transformation in either the response or those predictors is necessary to restore linearity. The a-v plot for fertility is inconclusive, as there is a hint of a nonlinear U shaped pattern, but it is not strong enough to indicate that a transformation is required. The a-v plot for Pop shows that India and China are extremely influential in deciding the model's population effect. It is difficult to assess linearity for Pop, because India and China prevent any patterns in the rest of the data from showing on the plot. It is also hard to tell if the relationship between population and ModernC is similar for the datapoints not including India and China.
 
+6. Using the Box-Tidwell `car::boxTidwell` or graphical methods find appropriate transformations of the predictor variables to be used as predictors in the linear model. If any predictors are negative, you may need to transform so that they are non-negative. Describe your method and the resulting transformations.
 
 ```{r}
+un3.na.o = na.omit(UN3)
+boxTidwell(ModernC ~ PPgdp + Fertility + Purban,data = un3.na.o)
+```
 
+Change was not considered a candidate for transformation in boxTidwell because it contains negative values and its a-v plot appeared to indicate that it was linear in its effect on ModernC. In addition, including Pop and Frate in the formula of the boxTidwell function resulted in failure. For these reasons boxTidwell is used to test PPgdp, fertility, and Purban, and the other predictors are analysed graphically. It is also important to note that in the boxTidwell function, an optimization function did not converge nicely (indicated by the "maximum iterations exceeded" warning), and the values shown above are perhaps unreliable.
+
+In the boxTidwell summary, fertility had a significant p value (0.005) indicating its relationship with the response is significantly non-linear. This is confirmed looking at the bivariate plot of Fertility and ModernC, shown below, where a clearly non-linear pattern is evident. The log transform results in the majority of the data following a linear pattern, shown in the second bivariate plot below. There is a clump of data at different levels of ModernC, but log(fertility) values around 0. That there are these two clumps of data for which separate linear relationships appear appropriate indicates that there may be clusters in our data that deserve separate analysis or special attention.
+
+```{r echo = F, fig.height=4}
+par(mfrow = c(1,2))
+plot(UN3$Fertility, UN3$ModernC, xlab = 'Fertility', ylab = "ModernC", main = "Untransformed Fertility")
+plot(log(UN3$Fertility), UN3$ModernC, xlab = 'Log(Fertility)', ylab = "ModernC", main = "Transformed Fertility")
+```
+
+Fertility was the only predictor the boxTidwell function considered significant in the nonlinearity of its relationship with the response, but I have reservations about other variables. As shown below, the log transform of PPgdp results in a linear relationship between that transformed predictor and the response, when the original scale of PPgdp had a strongly non-linear relationship with ModernC.
+
+```{r echo = F, fig.height=4}
+par(mfrow = c(1,2))
+plot(UN3$PPgdp, UN3$ModernC, xlab = 'PPgdp', ylab = "ModernC", main = "Untransformed PPGDP")
+plot(log(UN3$PPgdp), UN3$ModernC, xlab = 'Log(PPgdp)', ylab = "ModernC", main = "Transformed PPGDP")
 ```
 
 7. Given the selected transformations of the predictors, select a transformation of the response using `MASS::boxcox` or `car::boxCox` and justify.
 
 
 ```{r}
-
+boxCox(un3.na.o$ModernC ~ log(un3.na.o$Fertility) + un3.na.o$Purban + 
+         log(un3.na.o$PPgdp) + un3.na.o$Frate + un3.na.o$Pop + un3.na.o$Change)
+title('Box-Cox Plot')
 ```
 
-8.  Fit the regression using the transformed variables.  Provide residual plots and added variables plots and comment.  If you feel that you need additional transformations of either the response or predictors, repeat any steps until you feel satisfied.
+The Box-Cox plot for the model with log transformed fertility and PPgdp with the full set of other regressors shows that the lambda value 1 falls on the 95% confidence interval for the optimal lambda, so no transformation is recommended in this case.
 
-9. Start by finding the best transformation of the response and then find transformations of the predictors.  Do you end up with a different model than in 8?
+8. Fit the regression using the transformed variables. Provide residual plots and added variables plots and comment. If you feel that you need additional transformations of either the response or predictors, repeat any steps until you feel satisfied.
+
+```{r}
+un3.lm2 = lm(ModernC ~ log(Fertility) + log(PPgdp) + Pop + Change +
+               Frate + Purban, data = UN3)
+summary(un3.lm2)
+par(mfrow = c(2,2))
+plot(un3.lm2)
+```
+
+The regression of ModernC by the transformed regressor set better satisfies the assumptions, so the residual plots are more reliable. The standard residual by fitted plot shows residuals with no patterns present, supporting the linearity and constant variance assumptions. The Normal Q-Q plot of the residuals shows that the residuals likely follow a distribuiton with lighter tails than the normal, but there is no apparent skew. None of the points show up as major outliers that do not follow the end of the general data. The Scale-Location plot shows another patternless cloud of data, supporting the assumptions of linearity and constant variance, and while the spline shows some curvature, it does not appear to be significant and centers on the edges of the point cloud, where the spline has the highest uncertainty. The Residuals vs Leverage plot shows that none of the data in this model have a Cook's distance higher than 0.5, and that while India and China continue to have high leverage, their standardized residuals are not large.
+
+9. Start by finding the best transformation of the response and then find transformations of the predictors. Do you end up with a different model than in 8?
 
 
 ```{r}
-
+boxCox(un3.na.o$ModernC ~ un3.na.o$Fertility + un3.na.o$Purban + 
+         un3.na.o$PPgdp + un3.na.o$Frate + un3.na.o$Pop + un3.na.o$Change)
 ```
 
-10.  Are there any outliers or influential points in the data?  Explain.  If so, refit the model after removing any outliers and comment on residual plots.
+The value 1 falls on the 95% confidence interval for the optimal value of lambda, so at the standard significance level of 0.05 we would not reject the null hypothesis that no transformation is necessary. Because there is then no transformation applied to the response the optimal transformations of the predictors are the same transformations as done in the previous sections, so the final model is the same as in part 8.
 
+10. Are there any outliers or influential points in the data? Explain. If so, refit the model after removing any outliers and comment on residual plots.
 
-```{r}
-
+```{r echo = FALSE}
+cat('Hat (hii) values')
+hatvalues(un3.lm2)[c('India', 'China')]
+cat('Respective Pop values')
+UN3[c('India', 'China'),'Pop']
 ```
+
+India and China have the largest two hat values in this models, both of which are large enough to qualify those points as very influential. They are influential because they are outliers in the Pop variable, with population values larger than one billion. In both of the previous Residuals vs Leverage plots they have stood out from the rest of the data, so performing the analysis with those values excluded is worthwhile to gauge their effect on the model. Below is the summary table for the model with the same formula as the chosen transformation based model, but with the rows corresponding to India and China removed from the dataset.
+ 
+```{r echo = F}
+un3.lm3 = lm(ModernC ~ log(Fertility) + log(PPgdp) + Pop + Change +
+               Frate + Purban, data = UN3[!rownames(UN3) %in% c('India', 'China'), ])
+summary(un3.lm2)
+```
+
+We can see the effect of these outliers by comparing the model summaries, and in this case there are clear differences. The standard error for the coefficient for the Pop predictor has been reduced in magnitude from the previous model and Pop's corresponding p value (`r summary(un3.lm3)[['coefficients']]['Pop','Pr(>|t|)']`) is no longer significant at the 0.05 significance level. The origin of the high influence values of the India and China data was primarily in their very large populations, so to see the coefficient for Pop change from a significant effect with those rows included to a non-significant effect when those rows, which were very few in number compared with the size of the full data, are removed implies that Pop may not contain much information about ModernC. The diagnostic plots for the model without india and china are shown below.
+
+```{r echo = F}
+par(mfrow = c(2,2))
+plot(un3.lm3)
+```
+
+The residual plots, with the exception of the Residuals vs Leverage plot, look almost exactly the same as the residual plots generated for the model fit without excluding India and China. The Residuals vs Leverage plot now does not include the two highest leverage values that stood out in the previous iteration of the plot, but still looks similar because another point now appears to be high leverage in comparison to the rest of the data. 
 
 ## Summary of Results
 
-11. For your final model, provide summaries of coefficients with 95% confidence intervals in a nice table with interpretations of each coefficient.  These should be in terms of the original units! 
+11. For your final model, provide summaries of coefficients with 95% confidence intervals in a nice table with interpretations of each coefficient. These should be in terms of the original units! 
 
 
-```{r}
+```{r echo = F}
+ints = confint(un3.lm2)
+colnames(ints) = c('CI Lower Bound', 'CI Upper Bound')
+sums = summary(un3.lm2)[['coefficients']]
+tabledata = cbind(sums, ints)
+kable(tabledata, booktabs = T)
+```
+Interpretations:
 
+All interpretations are provided for the case when the variable of interest is changed but all others are held constant.
+
+Fertility: For a doubling of the fertility value we expect ModernC to reduce in value by about 13.5 points
+
+PPgpd: For a doubling of the PPgpd value we expect ModernC to increase in value by about 4 points
+
+Pop: For an increase of 38000 people in population we expect ModernC to increase by about 1 point
+
+Change: For a 1 point increase in Change we expect ModernC to increase by about 3 points
+
+Frate: For a 5 point increase in Frate we expect ModernC to increase by about 1 point
+
+Purban: For a 23 point increase in Purban we expect ModernC to increase by about 1 point
+
+
+12. Provide a paragraph summarizing your final model and findings suitable for the US envoy to the UN after adjusting for outliers or influential points. You should provide a justification for any case deletions in your final model
+
+```{r echo = F}
+summary(un3.lm2)
 ```
 
-
-12. Provide a paragraph summarizing your final model  and findings suitable for the US envoy to the UN after adjusting for outliers or influential points.   You should provide a justification for any case deletions in your final model
-
-
-```{r}
-
-```
-
+The model was computed using log transformations on Fertility and PPgdp in order to satisfy the linearity assumption and no cases were excluded in the model fit. China and India were not excluded, despite being heavily influential points, because their standardized residuals were small and they belong to the population of interest, so excluding them does not seem valid. By considering the terms with significant effect sizes, this model tells us that places with increased fertility rates also tend to have lower rates of unmarried women using a modern contraceptive. In addition, this tells us that places with higher GDP per capita tend to have higer rates of modern contraceptive usage in unmarried women. Largely due to the influence of India and China, this model indicates that places with a larger population also tend to have higher rates of usage of modern contraceptives among unmarried women. Lastly, the Frate term is marginally significant, so with a somewhat loose significance level of 0.05 we can conclude that places with higher rates of economically active women above the age of 15 tend to have higher rates of unmarried women using modern conntraceptives. That last conclusion may not hold at more conservative significance levels such as 0.005. 
 
 ## Methodology
 
-    
-13. Prove that the intercept in the added variable scatter plot will always be zero.  _Hint:  use the fact that if $H$ is the project matrix which contains a column of ones, then $1_n^T (I - H) = 0$.  Use this to show that the sample mean of residuals will always be zero if there is an intercept._
+  
+13. Prove that the intercept in the added variable scatter plot will always be zero. _Hint: use the fact that if $H$ is the project matrix which contains a column of ones, then $1_n^T (I - H) = 0$. Use this to show that the sample mean of residuals will always be zero if there is an intercept._
 
+In bivariate regression with quadratic loss we are guarenteed that the regression line will pass through the centriod of the data. The added variable plot relates the sets of residuals from two quadratic loss regressions. The simple least squares regression line on this plot must then pass though the centriod of the residuals. Therefore $\bar e_a = \hat \beta_0 + \hat \beta_1 \bar e_b$ where $e_a$ and $e_b$ are residuals from the regression of the other regressors on the response and the residuals from the regression of the  other regressors on the regressor of interest respectively. For a generic set of residuals with response $\textbf Y$ and hat matrix $\textbf H$ in quadratic loss regression we know:
 
-14. For multiple regression with more than 2 predictors, say a full model given by `Y ~ X1 + X2 + ... Xp`   we create the added variable plot for variable `j` by regressing `Y` on all of the `X`'s except `Xj` to form `e_Y` and then regressing `Xj` on all of the other X's to form `e_X`.  Confirm that the slope in a manually constructed added variable plot for one of the predictors  in Ex. 10 is the same as the estimate from your model. 
+$$\bar e = \frac{1}{n} \textbf1' \textbf e = \frac{1}{n} \textbf1'(\textbf Y - \textbf{HY}) = \frac{1}{n} \textbf1'(\textbf I - \textbf H)\textbf Y = 0 $$
+
+Therefore 
+
+$$\bar e_a = \hat \beta_0 + \hat \beta_1 \bar e_b \implies 0 = \hat \beta_0 + \hat \beta_1 0 \implies 0 = \hat \beta_0$$
+
+14. For multiple regression with more than 2 predictors, say a full model given by `Y ~ X1 + X2 + ... Xp`  we create the added variable plot for variable `j` by regressing `Y` on all of the `X`'s except `Xj` to form `e_Y` and then regressing `Xj` on all of the other X's to form `e_X`. Confirm that the slope in a manually constructed added variable plot for one of the predictors in Ex. 10 is the same as the estimate from your model. 
+
+```{r}
+e_Y = residuals(lm(ModernC ~ log(PPgdp) + Pop + Change + Frate + Purban, data = un3.na.o))
+e_X = residuals(lm(log(Fertility) ~ log(PPgdp) + Pop + 
+                     Change + Frate + Purban, data = un3.na.o))
+lm(e_Y ~ e_X)[['coefficients']][2]
+un3.lm2[['coefficients']][2]
+```
+
+The slope values are the same. $\beta$
