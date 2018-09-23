@@ -7,7 +7,7 @@ output:
   html_document:
     df_print: paged
 ---
-
+ 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
@@ -235,4 +235,4 @@ lm(e_Y ~ e_X)[['coefficients']][2]
 un3.lm2[['coefficients']][2]
 ```
 
-The slope values are the same. $\beta$
+The slope values are the same.
