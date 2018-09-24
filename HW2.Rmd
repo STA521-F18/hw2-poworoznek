@@ -60,10 +60,10 @@ plot.default(na.omit(UN3[-c(86,39), c(5,1)])[1][[1]], na.omit(UN3[-c(86,39), c(5
 The scatterplot for these variables with India and China excluded is shown below the scatterplot matrix, and does not show a visible association. Just among The regressor set there are issues. This does not qualify as a set of linear predictors as defined in the text, because there are clear non-linear relationships between the regressors (PPgpd shows a non-linear relationship with just about every other predictor, and the relationship between fertility and change is apparently non-linear). That indicates that our standard residual plots are no longer interpretatible in the same manner. 
 
 ```{r echo = F, fig.height = 3, fig.width = 5}
-plot(princomp(na.omit(UN3[,-1])))
+plot(princomp(na.omit(UN3[,-1]), cor = T))
 ```
 
-If we consider only the linear part of the relationships in the regressor set with a linear approximation in a principle component analysis we can see that a single principal component accounts for almost all (0.9955) of the total variance in this regressor set. The plot showing the comparative variance amounts in this principal components analysis is shown above.
+If we consider only the linear part of the relationships in the regressor set with a linear approximation in a principle component analysis we can see that there is a decent amount of variance split between the regressors in this set, so the set is not close to singular. The plot showing the comparative variance amounts in this principal components analysis is shown above.
 
 ## Model Fitting
 
